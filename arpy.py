@@ -103,7 +103,7 @@ def main(interf, targip, gatewy, outfile):
         sys.exit(0)
 
 if __name__ == "__main__":
-    # e.g harpy wlp4s0 192.168.1.179 192.168.1.1 out
+    # e.g arpy wlp4s0 192.168.1.179 192.168.1.1 out
     try:
         interface = sys.argv[1]
         if interface == "help" or interface == "--help" or interface == "-help": help()
