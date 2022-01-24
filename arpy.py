@@ -3,7 +3,7 @@ from scapy.all import *
 from getmac import get_mac_address
 import subprocess as sub
 import os, sys, threading, signal
-
+# Use (echo 1 > /proc/sys/net/ipv4/ip_forward) for ip forwarding
 LOGO = """
 
 ARP Spoofing tool made by memset-0x00
