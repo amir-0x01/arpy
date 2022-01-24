@@ -95,8 +95,7 @@ def main(interf, targip, gatewy, outfile):
     # beginning sniffing process
     try:
         p = sub.Popen(('sudo', 'tcpdump', 'ip', 'host', targip, '-w', outfile, '--print'), stdout=sub.PIPE)
-        for row in iter(p.stdout.readline, b''):
-            print(row.rstrip())   # process here
+        for row in iter(p.stdout.readline, b''): print(row.rstrip())  # iter() to make an iteration
 
     except KeyboardInterrupt:
         restore(gatewy, gatewy_mac, targip, target_mac)
