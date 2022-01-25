@@ -20,7 +20,7 @@ $$ |  $$ |$$ |  $$ |$$ |         $$ |
 """
 
 def help():
-    print("%s\narpy [iface] [target] [gateway] [outfile]\ne.g arpy wlp4s0 192.168.1.100 192.168.1.1 out" % LOGO)
+    print("%s\narpy.py [iface] [target] [gateway] [outfile]\ne.g python3 arpy.py wlp4s0 192.168.1.100 192.168.1.1 out" % LOGO)
     sys.exit(0)
 
 def restore(gateway_ip, gateway_mac, target_ip, target_mac):
