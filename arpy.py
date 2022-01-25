@@ -39,7 +39,7 @@ def restore(gateway_ip, gateway_mac, target_ip, target_mac):
     except: pass
 
 def poison_target(gateway_ip, gateway_mac, target_ip, target_mac, interface):
-    # (opcode = 2) = ARP REPLY
+    # (opcode = 2) = ARP REPLY, taking advantage of Gratuitous ARP
     poison_target = ARP()
     
     poison_target.op = 2
