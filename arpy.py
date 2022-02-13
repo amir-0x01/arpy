@@ -181,7 +181,6 @@ if __name__ == "__main__":
     # e.g sudo python3 arpy.py wlp4s0 192.168.1.10 192.168.1.1 out
     try:
         interface = sys.argv[1]
-        if interface.lower() == "help" or interface.lower() == "--help" or interface.lower() == "-help": help()
         target_ip = sys.argv[2]
         gatewy_ip = sys.argv[3]
         output_fl = sys.argv[4]
