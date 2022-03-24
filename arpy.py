@@ -1,6 +1,5 @@
       
 #!/usr/bin/python3
-import tkinter.messagebox
 import subprocess as sub
 import os, sys, threading, signal, time, argparse
 
