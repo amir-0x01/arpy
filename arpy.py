@@ -5,7 +5,7 @@ import os, sys, threading, signal, time, argparse
 
 LOGO = """
 
-ARP Spoofing tool made by memset-0x00
+ARP Spoofing tool made by amir-0x01
 
  $$$$$$\  $$$$$$$\  $$$$$$$\ $$\     $$\ 
 $$  __$$\ $$  __$$\ $$  __$$\\$$\   $$  |
